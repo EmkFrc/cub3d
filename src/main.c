@@ -2,52 +2,7 @@
 #include <mlx.h>
 #include <mlx_int.h>
 #include <stdlib.h>
-
-#define COLS 10
-#define ROWS 7
-#define TILESIZE 64
-#define WIN_NAME "So_Long"
-
-typedef struct s_vec2
-{
-	int x;
-	int y;
-}	t_vec2;
-
-typedef struct s_dvec2
-{
-	double x;
-	double y;
-}	t_dvec2;
-
-typedef struct s_uvec2
-{
-	unsigned int x;
-	unsigned int y;
-}	t_uvec2;
-
-
-typedef struct s_player
-{
-	double					x;
-	double					y;
-	double 					angle;
-	int					rayon;
-}						t_player;
-
-typedef struct s_data
-{
-	void				*mlx;
-	void				*win;
-	t_img				*img;
-	t_player			player;
-	int					window_width;
-	int					window_height;
-	double				fov;
-	int					res;
-	int					num_rays;
-	char				map[COLS * ROWS];
-}						t_data;
+#include <Includes/cube.h>
 
 void	put_pixel(t_data *data, int x, int y, unsigned int color)
 {
@@ -123,12 +78,13 @@ void	init_data(t_data *data)
 	data->fov = 60 * (M_PI / 180);
 	data->res = 4;
 	data->num_rays = data->window_width / data->res;
-	// Exemple de map
+	data->rays = malloc(sizeof(t_ray) * data->num_rays);
+	if (!data->rays)
+		exit(EXIT_FAILURE);
 	for (int i = 0; i < COLS * ROWS; i++)
 		data->map[i] = tmp[i];
-	// data->window_width = 800;
-	// data->window_height = 600;
 	data->player.rayon = 7;
+	data->player.angle = 0;
 	data->player.x = data->window_width / 2;
 	data->player.y = data->window_height / 2;
 }
@@ -212,15 +168,105 @@ void	draw_line(t_data *data, int x0, int y0, int x1, int y1, int color)
 		step--;
 	}
 }
+void	normalizeangle(t_data *data)
+{
+	if (data->player.angle > 2 * M_PI)
+		data->player.angle -= 2 * M_PI;
+	if (data->player.angle < 0)
+		data->player.angle += 2 * M_PI;
+}
+int	turn_line(int keycode, t_data *data)
+{
+	if (keycode == 'd')
+		data->player.angle += 0.2;
+	else if (keycode == 'a')
+		data->player.angle -= 0.2;
+	else if (keycode == 'w')
+	{
+		data->player.y += sin(data->player.angle) * 8.5;
+		data->player.x += cos(data->player.angle) * 8.5;
+	}
+	else if(keycode == 's')
+	{
+		data->player.y -= sin(data->player.angle) * 8.5;
+		data->player.x -= cos(data->player.angle) * 8.5;
+	}
+	normalizeangle(data);
+	return (0);
+}
+int circle_direction(int keycode, t_data *data)
+{
+	if (keycode == 'w')
+		data->player.y -= 20;
+	else if(keycode == 'a')
+		data->player.x += 20;
+	else if(keycode == 's')
+		data->player.y += 20;
+	else if(keycode == 'd')
+		data->player.x -= 20;
+	return (0);
+}
+void	castAllRays(t_data *data)
+{
+	double	angle;
+	int i = 0;
 
+	angle = data->player.angle - FOV / 2;
+	while (i < data->num_rays)
+	{
+		data->rays[i].rayangle = angle;
+		angle += FOV / data->num_rays;
+		i++;
+	}
+}
+void	where_is_facing(t_data *data, int i)
+{
+	if (data->rays[i].rayangle > 0 && data->rays[i].rayangle < M_PI)
+	{
+		data->rays[i].facing_horizontal = DOWN;
+	}
+	else
+	{
+		data->rays[i].facing_horizontal = UP;
+	}
+	if (data->rays[i].rayangle < 0.5 * M_PI || data->rays[i].rayangle > 1.5 * M_PI)
+	{
+		data->rays[i].facing_vertical = RIGHT;
+	}
+	else
+	{
+		data->rays[i].facing_vertical = LEFT;
+	}
+}
+double	totalen(t_data *data, int i)
+{
+	double	len = 0;
+	
+	where_is_facing(data, i);
 
+	int	wall_hit_x = 0;
+	int	wall_hit_y = 0;
+
+	return (len);
+}
 void loop_og(t_data *data)
 {
 	(void)data;
 	draw_map(data);
 	draw_circle(data, data->player.x, data->player.y, data->player.rayon,
 		0xFF0000);
-	draw_line(data, data->player.x, data->player.y, data->player.x + cos(data->player.angle) * 50, data->player.y + sin(data->player.angle) * 50, 0x0000FF);
+
+	double len = 256;
+	int i = 0;
+	castAllRays(data);
+	while(i < data->num_rays)
+	{
+		// double len = totalen(data);
+		int x1 = data->player.x + cos(data->rays[i].rayangle) * len;
+		int y1 = data->player.y + sin(data->rays[i].rayangle) * len;
+		draw_line(data, data->player.x, data->player.y, x1, y1, 0x0000FF);
+		i++;
+	}
 	mlx_put_image_to_window(data->mlx, data->win, data->img, 0, 0);
 	// data->player.angle += 0.1;
 	// check si angle > 2 * M_PI ou que angle < 0
@@ -237,8 +283,8 @@ int	main(void)
 	draw_map(&data);
 	draw_circle(&data, data.player.x, data.player.y, data.player.rayon,
 		0xFF0000); // Rouge
-	data.player.angle = 1.754;
-	draw_line(&data, data.player.x, data.player.y, data.player.x + 50, data.player.y, 0xFFFFFF);
+	// data.player.angle = 1.754;
+	mlx_key_hook(data.win, turn_line, &data);
 	mlx_put_image_to_window(data.mlx, data.win, data.img, 0, 0);
 	mlx_loop_hook(data.mlx, (int (*)(void *))loop_og, (void *)&data);
 	mlx_loop(data.mlx);
