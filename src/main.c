@@ -238,16 +238,120 @@ void	where_is_facing(t_data *data, int i)
 		data->rays[i].facing_vertical = LEFT;
 	}
 }
-double	totalen(t_data *data, int i)
+bool isWall(t_data *data, int x, int y)
 {
-	double	len = 0;
-	
+	if (x < 0 || x >= data->window_width || y < 0
+		|| y >= data->window_height)
+		return (true);
+	return (data->map[(y / TILESIZE) * COLS + (x / TILESIZE)] == '1');
+}
+double	distance_between(double x1, double x2, double y1, double y2)
+{
+	return (sqrt((x2 - x1)* (x2 - x1) + (y2 - y1)* (y2 - y1)));
+}
+void	get_horizontal_colision(t_data *data, int i)
+{
+
+
 	where_is_facing(data, i);
 
-	int	wall_hit_x = 0;
-	int	wall_hit_y = 0;
+	double first_intersection_x = 0;
+	double	first_intersection_y = 0;
 
-	return (len);
+	if(data->rays[i].facing_horizontal == UP)
+		first_intersection_y = (data->player.y / TILESIZE) * TILESIZE - 1;
+	else if (data->rays[i].facing_horizontal == DOWN)
+		first_intersection_y = ((data->player.y / TILESIZE) * TILESIZE) + TILESIZE;
+
+	first_intersection_x = data->player.x + (first_intersection_y - data->player.y) / tan(data->rays[i].rayangle);
+
+	double next_horizontal_x = first_intersection_x;
+	double next_horizontal_y = first_intersection_y;
+
+	double xa = 0;
+	double ya = 0;
+
+	if (data->rays[i].facing_horizontal == UP)
+		ya = -TILESIZE;
+	if (data->rays[i].facing_horizontal == DOWN)
+		ya = TILESIZE;
+
+	xa = ya / tan(data->rays[i].rayangle);
+
+	while (next_horizontal_x <= data->window_width && next_horizontal_x >= 0 && next_horizontal_y <= data->window_height && next_horizontal_y >= 0)
+	{
+		if (isWall(data, next_horizontal_x, next_horizontal_y))
+		{
+			data->rays[i].found_horizontal_wall = true;
+			data->rays[i].horizontal_hit_x = next_horizontal_x;
+			data->rays[i].horizontal_hit_y = next_horizontal_y;
+			break;
+		}
+		else
+		{
+			next_horizontal_x += xa;
+			next_horizontal_y += ya;
+		}
+	}
+
+	if(data->rays[i].facing_vertical == RIGHT)
+		first_intersection_x = ((data->player.x / TILESIZE) * TILESIZE) + TILESIZE;
+	else if (data->rays[i].facing_vertical == LEFT)
+		first_intersection_x = (data->player.x / TILESIZE) * TILESIZE - 1;
+
+	first_intersection_y = data->player.y + (first_intersection_x - data->player.x) * tan(data->rays[i].rayangle);
+
+	double next_vertical_x = first_intersection_x;
+	double next_vertical_y = first_intersection_y;
+
+	if (data->rays[i].facing_vertical == LEFT)
+		xa = -TILESIZE;
+	if (data->rays[i].facing_vertical == RIGHT)
+		xa = TILESIZE;
+
+	ya = xa * tan(data->rays[i].rayangle);
+
+	while (next_vertical_x <= data->window_width && next_vertical_x >= 0 &&
+       next_vertical_y <= data->window_height && next_vertical_y >= 0)
+
+	{
+		if (isWall(data, next_vertical_x, next_vertical_y))
+		{
+			data->rays[i].found_vertical_wall = true;
+			data->rays[i].vertical_hit_x = next_vertical_x;
+			data->rays[i].vertical_hit_y = next_vertical_y;
+			break;
+		}
+		else
+		{
+			next_vertical_x += xa;
+			next_vertical_y += ya;
+		}
+	}
+
+	double horizontal_distance = 0;
+	double vertical_distance = 0;
+
+	if (data->rays[i].found_horizontal_wall == true)
+		horizontal_distance *= cos(data->rays[i].rayangle - data->player.angle);
+	else
+		horizontal_distance = 99999;
+	if (data->rays[i].found_vertical_wall == true)
+		vertical_distance *= cos(data->rays[i].rayangle - data->player.angle);
+	else
+		vertical_distance = 99999;
+
+	if (horizontal_distance < vertical_distance)
+	{
+		data->rays[i].wall_hit_x = data->rays[i].horizontal_hit_x;
+		data->rays[i].wall_hit_y = data->rays[i].horizontal_hit_y;
+	}
+	else
+	{
+		data->rays[i].wall_hit_x = data->rays[i].vertical_hit_x;
+		data->rays[i].wall_hit_y = data->rays[i].vertical_hit_y;
+	}
+
 }
 void loop_og(t_data *data)
 {
@@ -256,15 +360,18 @@ void loop_og(t_data *data)
 	draw_circle(data, data->player.x, data->player.y, data->player.rayon,
 		0xFF0000);
 
-	double len = 256;
+	// double len = 256;
 	int i = 0;
 	castAllRays(data);
 	while(i < data->num_rays)
 	{
+		data->rays[i].found_horizontal_wall = false;
+		data->rays[i].found_vertical_wall = false;
+		get_horizontal_colision(data, i);
 		// double len = totalen(data);
-		int x1 = data->player.x + cos(data->rays[i].rayangle) * len;
-		int y1 = data->player.y + sin(data->rays[i].rayangle) * len;
-		draw_line(data, data->player.x, data->player.y, x1, y1, 0x0000FF);
+		// int x1 = data->player.x + cos(data->rays[i].rayangle) * len;
+		// int y1 = data->player.y + sin(data->rays[i].rayangle) * len;
+		draw_line(data, data->player.x, data->player.y, data->rays[i].wall_hit_x, data->rays[i].wall_hit_y, 0x0000FF);
 		i++;
 	}
 	mlx_put_image_to_window(data->mlx, data->win, data->img, 0, 0);

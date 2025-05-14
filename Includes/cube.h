@@ -6,7 +6,7 @@
 /*   By: efranco <efranco@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/05/02 11:49:40 by efranco           #+#    #+#             */
-/*   Updated: 2025/05/13 17:28:49 by efranco          ###   ########.fr       */
+/*   Updated: 2025/05/14 13:37:19 by efranco          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -68,6 +68,14 @@ typedef struct s_player
 typedef struct s_ray
 {
 	double rayangle;
+	bool			found_horizontal_wall;
+	bool			found_vertical_wall;
+	double				horizontal_hit_x;
+	double				horizontal_hit_y;
+	double				vertical_hit_x;
+	double				vertical_hit_y;
+	double				wall_hit_x;
+	double				wall_hit_y;
 	e_direction		facing_horizontal;
 	e_direction		facing_vertical;
 } t_ray;
