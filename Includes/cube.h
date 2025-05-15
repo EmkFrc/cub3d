@@ -6,7 +6,7 @@
 /*   By: efranco <efranco@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/05/02 11:49:40 by efranco           #+#    #+#             */
-/*   Updated: 2025/05/14 13:37:19 by efranco          ###   ########.fr       */
+/*   Updated: 2025/05/14 13:59:20 by efranco          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -70,12 +70,15 @@ typedef struct s_ray
 	double rayangle;
 	bool			found_horizontal_wall;
 	bool			found_vertical_wall;
-	double				horizontal_hit_x;
-	double				horizontal_hit_y;
-	double				vertical_hit_x;
-	double				vertical_hit_y;
-	double				wall_hit_x;
-	double				wall_hit_y;
+	bool			was_hit_horizontal;
+	bool			was_hit_vertical;
+	float				horizontal_hit_x;
+	float				horizontal_hit_y;
+	float				vertical_hit_x;
+	float				vertical_hit_y;
+	float				wall_hit_x;
+	float				wall_hit_y;
+	float				distance;
 	e_direction		facing_horizontal;
 	e_direction		facing_vertical;
 } t_ray;

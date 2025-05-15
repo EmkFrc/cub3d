@@ -238,121 +238,173 @@ void	where_is_facing(t_data *data, int i)
 		data->rays[i].facing_vertical = LEFT;
 	}
 }
-bool isWall(t_data *data, int x, int y)
+bool isWall(t_data *data, float x, float y)
 {
-	if (x < 0 || x >= data->window_width || y < 0
-		|| y >= data->window_height)
-		return (true);
-	return (data->map[(y / TILESIZE) * COLS + (x / TILESIZE)] == '1');
+	if (x < 0 || x >= data->window_width || y < 0 || y >= data->window_height)
+		return true;
+	int map_x = (int)(x / TILESIZE);
+	int map_y = (int)(y / TILESIZE);
+	return (data->map[map_y * COLS + map_x] == '1');
 }
-double	distance_between(double x1, double x2, double y1, double y2)
+float distance_between(float x1, float y1, float x2, float y2)
 {
-	return (sqrt((x2 - x1)* (x2 - x1) + (y2 - y1)* (y2 - y1)));
+	return sqrtf((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
-void	get_horizontal_colision(t_data *data, int i)
+void get_horizontal_intersection(t_data *data, int i)
 {
+	float angle = data->rays[i].rayangle;
+	float y_intercept, x_intercept;
+	float y_step, x_step;
 
+	data->rays[i].found_horizontal_wall = false;
 
-	where_is_facing(data, i);
+	y_intercept = floor(data->player.y / TILESIZE) * TILESIZE;
+	if (angle > 0 && angle < M_PI)
+		y_intercept += TILESIZE;
 
-	double first_intersection_x = 0;
-	double	first_intersection_y = 0;
+	x_intercept = data->player.x + (y_intercept - data->player.y) / tan(angle);
 
-	if(data->rays[i].facing_horizontal == UP)
-		first_intersection_y = (data->player.y / TILESIZE) * TILESIZE - 1;
-	else if (data->rays[i].facing_horizontal == DOWN)
-		first_intersection_y = ((data->player.y / TILESIZE) * TILESIZE) + TILESIZE;
+	if (angle > 0 && angle < M_PI)
+		y_step = TILESIZE;
+	else
+		y_step = -TILESIZE;
 
-	first_intersection_x = data->player.x + (first_intersection_y - data->player.y) / tan(data->rays[i].rayangle);
+	x_step = TILESIZE / tan(angle);
+	if ((angle > M_PI_2 && angle < 3 * M_PI_2) && x_step > 0)
+		x_step *= -1;
+	if (!(angle > M_PI_2 && angle < 3 * M_PI_2) && x_step < 0)
+		x_step *= -1;
 
-	double next_horizontal_x = first_intersection_x;
-	double next_horizontal_y = first_intersection_y;
+	float next_x = x_intercept;
+	float next_y = y_intercept;
 
-	double xa = 0;
-	double ya = 0;
-
-	if (data->rays[i].facing_horizontal == UP)
-		ya = -TILESIZE;
-	if (data->rays[i].facing_horizontal == DOWN)
-		ya = TILESIZE;
-
-	xa = ya / tan(data->rays[i].rayangle);
-
-	while (next_horizontal_x <= data->window_width && next_horizontal_x >= 0 && next_horizontal_y <= data->window_height && next_horizontal_y >= 0)
+	while (next_x >= 0 && next_x <= data->window_width &&
+		   next_y >= 0 && next_y <= data->window_height)
 	{
-		if (isWall(data, next_horizontal_x, next_horizontal_y))
+		float check_y;
+		if (angle > 0 && angle < M_PI)
+			check_y = next_y;
+		else
+			check_y = next_y - 1;
+
+		if (isWall(data, next_x, check_y))
 		{
+			data->rays[i].horizontal_hit_x = next_x;
+			data->rays[i].horizontal_hit_y = next_y;
 			data->rays[i].found_horizontal_wall = true;
-			data->rays[i].horizontal_hit_x = next_horizontal_x;
-			data->rays[i].horizontal_hit_y = next_horizontal_y;
 			break;
 		}
-		else
-		{
-			next_horizontal_x += xa;
-			next_horizontal_y += ya;
-		}
+		next_x += x_step;
+		next_y += y_step;
 	}
+}
 
-	if(data->rays[i].facing_vertical == RIGHT)
-		first_intersection_x = ((data->player.x / TILESIZE) * TILESIZE) + TILESIZE;
-	else if (data->rays[i].facing_vertical == LEFT)
-		first_intersection_x = (data->player.x / TILESIZE) * TILESIZE - 1;
+void get_vertical_intersection(t_data *data, int i)
+{
+	float angle = data->rays[i].rayangle;
+	float x_intercept, y_intercept;
+	float x_step, y_step;
 
-	first_intersection_y = data->player.y + (first_intersection_x - data->player.x) * tan(data->rays[i].rayangle);
+	data->rays[i].found_vertical_wall = false;
 
-	double next_vertical_x = first_intersection_x;
-	double next_vertical_y = first_intersection_y;
+	x_intercept = floor(data->player.x / TILESIZE) * TILESIZE; //aligner le rayon sur la première ligne verticale devant lui
+	if (angle < M_PI_2 || angle > 3 * M_PI_2) // viser le bord a droite
+		x_intercept += TILESIZE;
 
-	if (data->rays[i].facing_vertical == LEFT)
-		xa = -TILESIZE;
-	if (data->rays[i].facing_vertical == RIGHT)
-		xa = TILESIZE;
+	y_intercept = data->player.y + (x_intercept - data->player.x) * tan(angle); // y pour trouver la hauteur donc opp = adj * tan(a)
 
-	ya = xa * tan(data->rays[i].rayangle);
+	if (angle < M_PI_2 || angle > 3 * M_PI_2) // si x va a droite positif si va vers la gauche negatif
+		x_step = TILESIZE;
+	else
+		x_step = -TILESIZE;
 
-	while (next_vertical_x <= data->window_width && next_vertical_x >= 0 &&
-       next_vertical_y <= data->window_height && next_vertical_y >= 0)
+	y_step = TILESIZE * tan(angle); // on monte suivant la tan
+	if (angle > M_PI && y_step > 0) // on inverse , si il va vers le bas positif si il va vers le haut negatif
+		y_step *= -1;
+	if (angle < M_PI && y_step < 0)
+		y_step *= -1;
 
+	float next_x = x_intercept;
+	float next_y = y_intercept;
+
+	while (next_x >= 0 && next_x <= data->window_width &&
+		   next_y >= 0 && next_y <= data->window_height)
 	{
-		if (isWall(data, next_vertical_x, next_vertical_y))
+		float check_x;
+		if (angle < M_PI_2 || angle > 3 * M_PI_2) //angle vers la droite
+			check_x = next_x;
+		else
+			check_x = next_x - 1;
+
+		if (isWall(data, check_x, next_y))
 		{
+			data->rays[i].vertical_hit_x = next_x;
+			data->rays[i].vertical_hit_y = next_y;
 			data->rays[i].found_vertical_wall = true;
-			data->rays[i].vertical_hit_x = next_vertical_x;
-			data->rays[i].vertical_hit_y = next_vertical_y;
 			break;
 		}
-		else
-		{
-			next_vertical_x += xa;
-			next_vertical_y += ya;
-		}
+		next_x += x_step;
+		next_y += y_step;
+	}
+}
+
+void get_wall_hit(t_data *data, int i)
+{
+	data->rays[i].found_horizontal_wall = false;
+	data->rays[i].found_vertical_wall = false;
+	data->rays[i].horizontal_hit_x = 0;
+	data->rays[i].horizontal_hit_y = 0;
+	data->rays[i].vertical_hit_x = 0;
+	data->rays[i].vertical_hit_y = 0;
+
+	get_horizontal_intersection(data, i);
+	get_vertical_intersection(data, i);
+
+	float hor_dist;
+	if (data->rays[i].found_horizontal_wall)
+	{
+		hor_dist = distance_between(data->player.x, data->player.y,
+									data->rays[i].horizontal_hit_x,
+									data->rays[i].horizontal_hit_y);
+	}
+	else
+	{
+		hor_dist = 99999;
 	}
 
-	double horizontal_distance = 0;
-	double vertical_distance = 0;
-
-	if (data->rays[i].found_horizontal_wall == true)
-		horizontal_distance *= cos(data->rays[i].rayangle - data->player.angle);
-	else
-		horizontal_distance = 99999;
-	if (data->rays[i].found_vertical_wall == true)
-		vertical_distance *= cos(data->rays[i].rayangle - data->player.angle);
-	else
-		vertical_distance = 99999;
-
-	if (horizontal_distance < vertical_distance)
+	float vert_dist;
+	if (data->rays[i].found_vertical_wall)
 	{
-		data->rays[i].wall_hit_x = data->rays[i].horizontal_hit_x;
-		data->rays[i].wall_hit_y = data->rays[i].horizontal_hit_y;
+		vert_dist = distance_between(data->player.x, data->player.y,
+									 data->rays[i].vertical_hit_x,
+									 data->rays[i].vertical_hit_y);
 	}
 	else
 	{
+		vert_dist = 99999;
+	}
+
+	float angle_diff = data->rays[i].rayangle - data->player.angle;
+	hor_dist *= cos(angle_diff);
+	vert_dist *= cos(angle_diff);
+
+	if (vert_dist < hor_dist)
+	{
+		data->rays[i].distance = vert_dist;
+		data->rays[i].was_hit_vertical = true;
 		data->rays[i].wall_hit_x = data->rays[i].vertical_hit_x;
 		data->rays[i].wall_hit_y = data->rays[i].vertical_hit_y;
 	}
-
+	else
+	{
+		data->rays[i].distance = hor_dist;
+		data->rays[i].was_hit_vertical = false;
+		data->rays[i].wall_hit_x = data->rays[i].horizontal_hit_x;
+		data->rays[i].wall_hit_y = data->rays[i].horizontal_hit_y;
+	}
 }
+
+
 void loop_og(t_data *data)
 {
 	(void)data;
@@ -367,7 +419,7 @@ void loop_og(t_data *data)
 	{
 		data->rays[i].found_horizontal_wall = false;
 		data->rays[i].found_vertical_wall = false;
-		get_horizontal_colision(data, i);
+		get_wall_hit(data, i);
 		// double len = totalen(data);
 		// int x1 = data->player.x + cos(data->rays[i].rayangle) * len;
 		// int y1 = data->player.y + sin(data->rays[i].rayangle) * len;
