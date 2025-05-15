@@ -76,7 +76,7 @@ void	init_data(t_data *data)
 	data->window_width = COLS * TILESIZE;
 	data->window_height = ROWS * TILESIZE;
 	data->fov = 60 * (M_PI / 180);
-	data->res = 4;
+	data->res = 1;
 	data->num_rays = data->window_width / data->res;
 	data->rays = malloc(sizeof(t_ray) * data->num_rays);
 	if (!data->rays)
@@ -168,12 +168,13 @@ void	draw_line(t_data *data, int x0, int y0, int x1, int y1, int color)
 		step--;
 	}
 }
-void	normalizeangle(t_data *data)
+double	normalizeangle(double angle)
 {
-	if (data->player.angle > 2 * M_PI)
-		data->player.angle -= 2 * M_PI;
-	if (data->player.angle < 0)
-		data->player.angle += 2 * M_PI;
+	if (angle > 2 * M_PI)
+		angle -= 2 * M_PI;
+	if (angle < 0)
+		angle += 2 * M_PI;
+		return (angle);
 }
 int	turn_line(int keycode, t_data *data)
 {
@@ -191,7 +192,7 @@ int	turn_line(int keycode, t_data *data)
 		data->player.y -= sin(data->player.angle) * 8.5;
 		data->player.x -= cos(data->player.angle) * 8.5;
 	}
-	normalizeangle(data);
+	data->player.angle = normalizeangle(data->player.angle);
 	return (0);
 }
 int circle_direction(int keycode, t_data *data)
@@ -246,13 +247,15 @@ bool isWall(t_data *data, float x, float y)
 	int map_y = (int)(y / TILESIZE);
 	return (data->map[map_y * COLS + map_x] == '1');
 }
+
 float distance_between(float x1, float y1, float x2, float y2)
 {
 	return sqrtf((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
+
 void get_horizontal_intersection(t_data *data, int i)
 {
-	float angle = data->rays[i].rayangle;
+	float angle = normalizeangle(data->rays[i].rayangle);
 	float y_intercept, x_intercept;
 	float y_step, x_step;
 
@@ -301,7 +304,7 @@ void get_horizontal_intersection(t_data *data, int i)
 
 void get_vertical_intersection(t_data *data, int i)
 {
-	float angle = data->rays[i].rayangle;
+	double angle = normalizeangle(data->rays[i].rayangle);
 	float x_intercept, y_intercept;
 	float x_step, y_step;
 
@@ -404,13 +407,45 @@ void get_wall_hit(t_data *data, int i)
 	}
 }
 
+void	put_pixel_to_buffer(t_data *data, int x, int y, int color)
+{
+	if (x < 0)
+		x = 0;
+	if (x > data->window_width)
+		x = data->window_width;
+	if (y < 0)
+		y = 0;
+	if (y > data->window_height)
+		y = data->window_height;
+	((unsigned int *)data->img->data)[(y * (data->img->size_line / 4))
+		+ x] = color;
+}
+
+#define DISTANCE_FROM_CAMERA (double)((COLS * TILESIZE / 2) / tan(FOV / 2))
+
+void draw_wall(t_data *data, int i)
+{
+	float height = ((double)(64 / data->rays[i].distance) * DISTANCE_FROM_CAMERA);
+	unsigned int color;
+
+	float draw_begin = (data->window_height - height) / 2;
+	float draw_end = height;
+
+	if (data->rays[i].was_hit_vertical)
+		color = 0x008000;
+	else
+		color = 0x008800;
+	draw_line(data, i , 0, i, draw_begin, 0x000080);
+	draw_line(data, i , draw_begin, i, draw_end + draw_begin, color);
+	draw_line(data, i , draw_end + draw_begin, i, data->window_height + 1, 0x880080);
+}
 
 void loop_og(t_data *data)
 {
 	(void)data;
-	draw_map(data);
-	draw_circle(data, data->player.x, data->player.y, data->player.rayon,
-		0xFF0000);
+//	draw_map(data);
+	//draw_circle(data, data->player.x, data->player.y, data->player.rayon,
+		//0xFF0000);
 
 	// double len = 256;
 	int i = 0;
@@ -423,10 +458,15 @@ void loop_og(t_data *data)
 		// double len = totalen(data);
 		// int x1 = data->player.x + cos(data->rays[i].rayangle) * len;
 		// int y1 = data->player.y + sin(data->rays[i].rayangle) * len;
-		draw_line(data, data->player.x, data->player.y, data->rays[i].wall_hit_x, data->rays[i].wall_hit_y, 0x0000FF);
+		// draw_line(data, data->player.x, data->player.y, data->rays[i].wall_hit_x, data->rays[i].wall_hit_y, 0x0000FF);
+		draw_wall(data, i);
 		i++;
 	}
+	
 	mlx_put_image_to_window(data->mlx, data->win, data->img, 0, 0);
+	mlx_destroy_image(data->mlx, data->img);
+	data->img = mlx_new_image(data->mlx, data->window_width,
+		data->window_height);
 	// data->player.angle += 0.1;
 	// check si angle > 2 * M_PI ou que angle < 0
 	usleep(10000);
@@ -439,9 +479,9 @@ int	main(void)
 	if (!init_win(&data))
 		return (1);
 	mlx_hook(data.win, 17, 0, close_window, &data);
-	draw_map(&data);
-	draw_circle(&data, data.player.x, data.player.y, data.player.rayon,
-		0xFF0000); // Rouge
+	//draw_map(&data);
+	//draw_circle(&data, data.player.x, data.player.y, data.player.rayon,
+		//0xFF0000); // Rouge
 	// data.player.angle = 1.754;
 	mlx_key_hook(data.win, turn_line, &data);
 	mlx_put_image_to_window(data.mlx, data.win, data.img, 0, 0);

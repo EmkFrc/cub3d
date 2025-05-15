@@ -3,7 +3,7 @@ NAME = GTA
 
 # Compilateur et options
 CC = cc
-CFLAGS = -Wall -Wextra -Werror
+CFLAGS =
 
 # Fichiers source et objets
 SRC =  src/main.c
@@ -11,7 +11,7 @@ SRC =  src/main.c
 OBJ = $(SRC:.c=.o)
 
 # Inclusion des headers
-LIBS = -Lmlx_linux -lm -lXext -lX11
+LIBS = -Lmlx_linux -lm -lX11 -lXext 
 
 INCLUDES = -I. -Imlx_linux
 
@@ -19,7 +19,7 @@ INCLUDES = -I. -Imlx_linux
 all: $(NAME)
 
 $(NAME): $(OBJ)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(NAME) $(OBJ) $(LIBS) mlx_linux/libmlx_Linux.a
+	$(CC) $(CFLAGS) $(INCLUDES) mlx_linux/libmlx_Linux.a $(OBJ) $(LIBS) -o $(NAME) 
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
@@ -33,3 +33,5 @@ fclean: clean
 re: fclean all
 
 .PHONY: all clean fclean re
+
+#cc src/main.o mlx_linux/libmlx_Linux.a -Imlx_linux -I. -lm -lX11 -lXext
